@@ -1,5 +1,0 @@
-# Project exclude paths
-/common/target/
-/service/target/
-.idea
-.gitignore
