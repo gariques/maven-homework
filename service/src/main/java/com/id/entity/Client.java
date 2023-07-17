@@ -1,34 +1,30 @@
 package com.id.entity;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 
-import javax.persistence.CascadeType;
 import javax.persistence.Entity;
-import javax.persistence.OneToOne;
+import javax.persistence.OneToMany;
 import javax.persistence.PrimaryKeyJoinColumn;
+import java.util.ArrayList;
+import java.util.List;
 
+@EqualsAndHashCode(callSuper = true)
 @Data
-@EqualsAndHashCode(exclude = "order", callSuper = false)
-@ToString(exclude = "order")
 @NoArgsConstructor
 @AllArgsConstructor
+@SuperBuilder
 @Entity
 @PrimaryKeyJoinColumn(name = "id")
 public class Client extends User{
 
     private String driverLicenseId;
 
-    @OneToOne(mappedBy = "client", cascade = CascadeType.ALL)
-    private Order order;
+    @OneToMany(mappedBy = "client")
+    private List<Order> orders = new ArrayList<>();
 
-    @Builder
-    public Client(Long id, String firstName, String lastName, String login, String password, Role role, String driverLicenseId) {
-        super(id, firstName, lastName, login, password, role);
-        this.driverLicenseId = driverLicenseId;
-    }
+
 }
