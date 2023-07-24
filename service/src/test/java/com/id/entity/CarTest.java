@@ -1,12 +1,10 @@
 package com.id.entity;
 
-import com.id.dao.CarDao;
+import com.id.repository.CarRepository;
 import com.id.filters.CarFilter;
 import com.id.util.HibernateUtil;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.Transaction;
-import org.hibernate.graph.RootGraph;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -14,57 +12,60 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.persistence.EntityManager;
+import java.lang.reflect.Proxy;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class CarTest {
 
     private static SessionFactory sessionFactory;
-    private static Session session;
-    private final CarDao carDao = new CarDao();
+    private Session session;
 
     @BeforeAll
     static void setUp() {
         sessionFactory = HibernateUtil.buildSessionFactory();
-        session = sessionFactory.openSession();
     }
 
     @AfterAll
     static void shutDown() {
-        session.close();
         sessionFactory.close();
     }
 
     @BeforeEach
     void openTransaction() {
+        session = sessionFactory.openSession();
         session.beginTransaction();
     }
 
-//    @AfterEach
-//    void rollBack() {
-//        session.getTransaction().rollback();
-//    }
+    @AfterEach
+    void rollBack() {
+        session.getTransaction().rollback();
+        session.close();
+
+    }
 
     @Test
     void saveCar() {
-            var expectedResult = Car.builder()
-                    .model("Toyota Crown S220")
-                    .colour("white")
-                    .price(3000)
-                    .status(CarStatus.AVAILABLE)
-                    .build();
+        var carRepository = new CarRepository(session);
+        var car = Car.builder()
+                .model("Toyota Crown S220")
+                .colour("white")
+                .price(3000)
+                .status(CarStatus.AVAILABLE)
+                .build();
 
-            session.save(expectedResult);
+        carRepository.save(car);
 
-            session.getTransaction().commit();
-
-            assertNotNull(expectedResult.getId());
+        assertNotNull(car.getId());
     }
 
     @Test
     void readCar() {
+        var carRepository = new CarRepository(session);
         var expectedResult = Car.builder()
                 .model("Toyota Crown S220")
                 .colour("white")
@@ -72,40 +73,38 @@ class CarTest {
                 .status(CarStatus.AVAILABLE)
                 .build();
 
-        session.save(expectedResult);
+        carRepository.save(expectedResult);
         session.clear();
 
-        var actualResult = session.get(Car.class, 1L);
-
-        session.getTransaction().commit();
+        var actualResult = carRepository.findById(expectedResult.getId());
 
         assertNotNull(expectedResult.getId());
-        assertEquals(expectedResult, actualResult);
+        assertEquals(expectedResult, actualResult.get());
     }
 
     @Test
     void updateCar() {
+        var carRepository = new CarRepository(session);
         var car = Car.builder()
                 .model("Toyota Crown S220")
                 .colour("white")
                 .price(3000)
                 .status(CarStatus.AVAILABLE)
                 .build();
-        session.save(car);
+        carRepository.save(car);
         car.setPrice(5000);
         car.setColour("new-Colour");
 
-        session.update(car);
+        carRepository.update(car);
 
-        session.getTransaction().commit();
+        var updatedCar = carRepository.findById(car.getId());
 
-        var updatedCar = session.get(Car.class, 1L);
-
-        assertThat(updatedCar).isEqualTo(car);
+        assertThat(updatedCar.get()).isEqualTo(car);
     }
 
     @Test
     void deleteCar() {
+        var carRepository = new CarRepository(session);
         var car = Car.builder()
                 .model("Toyota Crown S220")
                 .colour("white")
@@ -113,15 +112,15 @@ class CarTest {
                 .status(CarStatus.AVAILABLE)
                 .build();
 
-        session.save(car);
-        session.delete(car);
-        session.getTransaction().commit();
+        carRepository.save(car);
+        carRepository.delete(car);
 
-        Assertions.assertNull(session.get(Car.class, 1L));
+        assertThat(carRepository.findById(car.getId()).isEmpty()).isTrue();
     }
 
     @Test
     void getAvailableCars() {
+        var carRepository = new CarRepository(session);
         var carGraph = session.createEntityGraph(Car.class);
         var car = Car.builder()
                 .model("Toyota Crown S220")
@@ -146,12 +145,15 @@ class CarTest {
                 .status(CarStatus.AVAILABLE)
                 .build();
 
+
         session.save(car);
         session.save(car2);
         session.save(car3);
 
-        List<Car> carList = carDao.getAvailableCars(session, filter, carGraph);
+        List<Car> carList = carRepository.getAvailableCars(session, filter, carGraph);
 
         assertThat(carList).hasSize(2);
+        assertThat(carList.get(0).getModel()).isEqualTo("Toyota Crown S220");
+        assertThat(carList.get(1).getModel()).isEqualTo("Toyota Camry 70");
     }
 }

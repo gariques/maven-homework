@@ -3,7 +3,9 @@ package com.id.entity;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import javax.persistence.Entity;
 import javax.persistence.EnumType;
@@ -18,9 +20,11 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(exclude = "orders")
+@ToString(exclude = "orders")
 @Builder
 @Entity
-public class Car {
+public class Car implements BaseEntity<Long> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,6 +39,7 @@ public class Car {
     @Enumerated(EnumType.STRING)
     private CarStatus status;
 
+    @Builder.Default
     @OneToMany(mappedBy = "car")
     private List<Order> orders = new ArrayList<>();
 }

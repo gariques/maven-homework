@@ -1,49 +1,52 @@
 package com.id.entity;
 
-import com.id.dao.ClientDao;
-import com.id.dao.OrderDao;
+import com.id.repository.ClientRepository;
 import com.id.filters.ClientFilter;
 import com.id.util.HibernateUtil;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class ClientTest {
 
     private static SessionFactory sessionFactory;
-    private static Session session;
-    private final ClientDao clientDao = new ClientDao();
+    private Session session;
 
 
     @BeforeAll
     static void setUp() {
         sessionFactory = HibernateUtil.buildSessionFactory();
-        session = sessionFactory.openSession();
     }
 
     @AfterAll
     static void shutDown() {
-        session.close();
         sessionFactory.close();
     }
 
     @BeforeEach
     void openTransaction() {
+        session = sessionFactory.openSession();
         session.beginTransaction();
+    }
+
+    @AfterEach
+    void rollback() {
+        session.getTransaction().rollback();
+        session.close();
     }
 
     @Test
     void saveClient() {
+        var clientRepository = new ClientRepository(session);
         var expectedResult = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -53,9 +56,7 @@ public class ClientTest {
                 .role(Role.CLIENT)
                 .build();
 
-        session.save(expectedResult);
-
-        session.getTransaction().commit();
+        clientRepository.save(expectedResult);
 
         assertNotNull(expectedResult.getId());
 
@@ -63,7 +64,8 @@ public class ClientTest {
 
     @Test
     void readClient() {
-        var expectedResult = Client.builder()
+        var clientRepository = new ClientRepository(session);
+        var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
                 .login("test@gmail.com")
@@ -72,19 +74,18 @@ public class ClientTest {
                 .role(Role.CLIENT)
                 .build();
 
-        session.save(expectedResult);
+        clientRepository.save(client);
         session.clear();
 
-        var actualResult = session.get(Client.class, 1L);
+        var actualClient = clientRepository.findById(client.getId());
 
-        session.getTransaction().commit();
-
-        assertNotNull(expectedResult.getId());
-        assertEquals(expectedResult, actualResult);
+        assertNotNull(client.getId());
+        assertEquals(client, actualClient.get());
     }
 
     @Test
     void updateClient() {
+        var clientRepository = new ClientRepository(session);
         var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -93,20 +94,19 @@ public class ClientTest {
                 .password("111")
                 .role(Role.CLIENT)
                 .build();
-        session.save(client);
+        clientRepository.save(client);
         client.setDriverLicenseId("123");
 
-        session.update(client);
+        clientRepository.update(client);
 
-        session.getTransaction().commit();
+        var updatedClient = clientRepository.findById(client.getId());
 
-        var updatedCar = session.get(Client.class, 1L);
-
-        assertThat(updatedCar).isEqualTo(client);
+        assertThat(updatedClient.get()).isEqualTo(client);
     }
 
     @Test
     void deleteClient() {
+        var clientRepository = new ClientRepository(session);
         var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -116,15 +116,15 @@ public class ClientTest {
                 .role(Role.CLIENT)
                 .build();
 
-        session.save(client);
-        session.delete(client);
-        session.getTransaction().commit();
+        clientRepository.save(client);
+        clientRepository.delete(client);
 
-        Assertions.assertNull(session.get(Client.class, 1L));
+        assertThat(clientRepository.findById(client.getId()).isEmpty()).isTrue();
     }
 
     @Test
     void getClientsWithFilter() {
+        var clientRepository = new ClientRepository(session);
         var clientGraph = session.createEntityGraph(Client.class);
 
         var client = Client.builder()
@@ -152,7 +152,7 @@ public class ClientTest {
                 .lastName("Testoff")
                 .build();
 
-        var clients = clientDao.getClientsByFirstAndLastnames(session, filter, clientGraph);
+        var clients = clientRepository.getClientsByFirstAndLastnames(session, filter, clientGraph);
         assertThat(clients).hasSize(1);
         assertThat(clients.get(0).getLastName()).isEqualTo("Testoff");
     }

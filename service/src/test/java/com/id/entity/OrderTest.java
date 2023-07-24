@@ -1,11 +1,12 @@
 package com.id.entity;
 
-import com.id.dao.OrderDao;
+import com.id.repository.OrderRepository;
 import com.id.filters.ClientFilter;
 import com.id.util.HibernateUtil;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,33 +18,39 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class OrderTest {
 
     private static SessionFactory sessionFactory;
-    private static Session session;
-    private final OrderDao orderDao = new OrderDao();
+    private Session session;
 
     @BeforeAll
     static void setUp() {
         sessionFactory = HibernateUtil.buildSessionFactory();
-        session = sessionFactory.openSession();
     }
 
     @AfterAll
     static void shutDown() {
-        session.close();
         sessionFactory.close();
     }
 
     @BeforeEach
     void openTransaction() {
+        session = sessionFactory.openSession();
         session.beginTransaction();
+    }
+
+    @AfterEach
+    void rollback() {
+        session.getTransaction().rollback();
+        session.close();
     }
 
     @Test
     void saveOrder() {
+        var orderRepository = new OrderRepository(session);
         var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -69,15 +76,14 @@ class OrderTest {
 
         session.save(client);
         session.save(car);
-        session.save(order);
-
-        session.getTransaction().commit();
+        orderRepository.save(order);
 
         assertNotNull(order.getId());
     }
 
     @Test
     void readOrder() {
+        var orderRepository = new OrderRepository(session);
         var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -103,19 +109,18 @@ class OrderTest {
 
         session.save(client);
         session.save(car);
-        session.save(order);
+        orderRepository.save(order);
         session.clear();
 
-        var actualResult = session.get(Order.class, 1L);
-
-        session.getTransaction().commit();
+        var actualResult = orderRepository.findById(order.getId());
 
         assertNotNull(order.getId());
-        assertEquals(order, actualResult);
+        assertEquals(order, actualResult.get());
     }
 
     @Test
     void updateOrder() {
+        var orderRepository = new OrderRepository(session);
         var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -141,20 +146,19 @@ class OrderTest {
 
         session.save(client);
         session.save(car);
-        session.save(order);
+        orderRepository.save(order);
 
         order.setFinishDate(Instant.now().plusSeconds(172800).truncatedTo(ChronoUnit.HOURS));
-        session.update(order);
+        orderRepository.update(order);
 
-        session.getTransaction().commit();
+        var updatedOrder = orderRepository.findById(order.getId());
 
-        var updatedOrder = session.get(Order.class, 1L);
-
-        assertThat(updatedOrder).isEqualTo(order);
+        assertThat(updatedOrder.get()).isEqualTo(order);
     }
 
     @Test
     void deleteOrder() {
+        var orderRepository = new OrderRepository(session);
         var client = Client.builder()
                 .firstName("Test")
                 .lastName("Testoff")
@@ -180,16 +184,16 @@ class OrderTest {
 
         session.save(client);
         session.save(car);
-        session.save(order);
+        orderRepository.save(order);
 
-        session.delete(order);
-        session.getTransaction().commit();
+        orderRepository.delete(order);
 
-        Assertions.assertNull(session.get(Order.class, 1L));
+        assertThat(orderRepository.findById(order.getId()).isEmpty()).isTrue();
     }
 
     @Test
     void getOrdersByFirstAndLastnames() {
+        var orderRepository = new OrderRepository(session);
         var orderGraph = session.createEntityGraph(Order.class);
 
         var client1 = Client.builder()
@@ -253,9 +257,10 @@ class OrderTest {
                 .firstName("Test")
                 .lastName("Testoff")
                 .build();
-        List<Order> orderList = orderDao.getOrdersByFirstAndLastnames(session, filter, orderGraph);
+        List<Order> orderList = orderRepository.getOrdersByFirstAndLastnames(session, filter, orderGraph);
 
         assertThat(orderList).hasSize(2);
         assertThat(orderList.get(0).getClient().getLastName()).isEqualTo("Testoff");
+        assertThat(orderList.get(1).getClient().getLastName()).isEqualTo("Testoff");
     }
 }

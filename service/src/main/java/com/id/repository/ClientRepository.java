@@ -1,4 +1,4 @@
-package com.id.dao;
+package com.id.repository;
 
 import com.id.entity.Client;
 import com.id.filters.ClientFilter;
@@ -8,12 +8,17 @@ import org.hibernate.Session;
 import org.hibernate.graph.GraphSemantic;
 
 import javax.persistence.EntityGraph;
+import javax.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.id.entity.QClient.client;
 
-public class ClientDao {
+public class ClientRepository extends AbstractCrudRepository<Long, Client> {
+
+    public ClientRepository(EntityManager entityManager) {
+        super(Client.class, entityManager);
+    }
 
     public List<Client> getClientsByFirstAndLastnames(Session session, ClientFilter filter, EntityGraph<Client> graph) {
 //        var predicate = QPredicate.builder()

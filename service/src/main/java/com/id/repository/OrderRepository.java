@@ -1,24 +1,26 @@
-package com.id.dao;
+package com.id.repository;
 
-import com.id.entity.Client;
 import com.id.entity.Order;
 import com.id.filters.ClientFilter;
-import com.id.predicates.QPredicate;
 import com.querydsl.core.types.Predicate;
 import com.querydsl.jpa.impl.JPAQuery;
 import org.hibernate.Session;
 import org.hibernate.graph.GraphSemantic;
 
 import javax.persistence.EntityGraph;
+import javax.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.id.entity.QClient.client;
 import static com.id.entity.QOrder.order;
-import static com.id.entity.QUser.user;
 
-public class OrderDao {
+public class OrderRepository extends AbstractCrudRepository<Long, Order> {
 
+
+    public OrderRepository(EntityManager entityManager) {
+        super(Order.class, entityManager);
+    }
 
     public List<Order> getOrdersByFirstAndLastnames(Session session, ClientFilter filter, EntityGraph<Order> graph) {
 //        var predicate = QPredicate.builder()
